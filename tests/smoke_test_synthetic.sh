@@ -23,6 +23,12 @@ MODEL="${2:-vae}"                      # "vae" (paper) or "transformer"
 RECON_DIR="models/${MODEL}/synthetic"  # weights dir of the reconstruction model
 PY="${PYTHON:-python}"
 
+# Paper-fidelity settings overridable via environment:
+#   AL_FRACTION=0.05    -> "5% of the most confusing windows per episode"
+#   LAMBDA_ALPHA=1e-4   -> gradual Fig. 2a-style decay of lambda
+AL_FRACTION="${AL_FRACTION:-0.05}"
+LAMBDA_ALPHA="${LAMBDA_ALPHA:-1e-4}"
+
 echo "== 0/6 sanity: script import checks =="
 "$PY" scripts/active_learning.py --help > /dev/null
 "$PY" scripts/train_vae.py --help > /dev/null
@@ -60,8 +66,8 @@ echo "== 4/6 TRAINRL (Algorithm 1 lines 16-34) =="
   --output_dir models/dqn --run_name synthetic \
   --n_steps 25 --n_hidden_dim 64 --episodes "$EPISODES" \
   --batch_size 128 --learning_rate 3e-4 --discount_factor 0.96 \
-  --al_budget 200 --lp_budget 200 \
-  --lambda_init 10.0 --lambda_alpha 0.001 \
+  --al_fraction "$AL_FRACTION" --lp_budget 200 \
+  --lambda_init 10.0 --lambda_alpha "$LAMBDA_ALPHA" \
   --lambda_target 0.0 --lambda_min 0.1 --lambda_max 10.0
 
 echo "== 5/6 VALIDATE (Algorithm 1 lines 36-43) =="

@@ -209,6 +209,12 @@ python scripts/warmup_replay.py \
 
 # 3) TRAINRL -- LSTM-DQN + dynamic reward scaling + active learning
 #    (Algorithm 1, lines 16-34); 100 episodes = the paper's setting
+#    --al_fraction 0.05  : the paper's "5% of the most confusing windows
+#                          per episode" active-learning budget
+#    --lambda_alpha 1e-4 : gradual Fig. 2a-style decay of lambda for the
+#                          full-episode reward (the paper leaves alpha
+#                          unstated; drop both flags for the repo-literal
+#                          settings: K_AL=200/episode, alpha=0.001)
 python scripts/train_rl.py \
   --dataset smd --data_dir SMD/ServerMachineDataset \
   --vae_model_dir models/vae/smd \
@@ -216,8 +222,8 @@ python scripts/train_rl.py \
   --output_dir models/dqn --run_name smd \
   --n_steps 25 --n_hidden_dim 64 --episodes 100 \
   --batch_size 128 --learning_rate 3e-4 --discount_factor 0.96 \
-  --al_budget 200 --lp_budget 200 \
-  --lambda_init 10.0 --lambda_alpha 0.001 \
+  --al_fraction 0.05 --lp_budget 200 \
+  --lambda_init 10.0 --lambda_alpha 1e-4 \
   --lambda_target 0.0 --lambda_min 0.1 --lambda_max 10.0
 
 # 4) VALIDATE -- greedy policy on the held-out 20% of the machines;
@@ -237,11 +243,11 @@ python scripts/visualize_results.py \
 ```
 
 Tips: start with `--episodes 20` for a dry run (CPU); add `--device cuda` to
-steps 1/3/4 on a GPU.  The paper labels "only 5% of the most confusing
-windows per episode" — pass `--al_fraction 0.05` to step 3 for that setting
-(default `--al_budget 200` follows the original code).  For the Transformer
-reconstruction backbone add `--model transformer` to step 1 and point
-`--vae_model_dir` at `models/transformer/smd` in steps 2-4 (or just run
+steps 1/3/4 on a GPU.  Step 1's window scaler defaults to `standard`
+(Algorithm 1 line 6 "Standardize"); pass `--scaler robust` for the WADI-code
+variant.  For the Transformer reconstruction backbone add `--model
+transformer` to step 1 and point `--vae_model_dir` at
+`models/transformer/smd` in steps 2-4 (or just run
 `bash tests/run_smd.sh 100 transformer`).
 
 Where the two original research scripts disagreed (e.g. LSTM hidden size 128

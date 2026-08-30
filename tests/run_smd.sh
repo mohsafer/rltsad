@@ -5,10 +5,13 @@
 # The ServerMachineDataset ships with this repository under
 #   SMD/ServerMachineDataset/{train,test,test_label}   (28 machines, 38 dims)
 #
-# Hyper-parameters follow the paper and the original `myasp-smd.py`:
-#   n_steps=25, LSTM hidden=64 (paper), episodes=100, gamma=0.96,
-#   batch=128, lr=3e-4, TP/TN/FP/FN = 10/1/-1/-10,
-#   lambda_0=10, alpha=0.001, lambda in [0.1, 10], K_AL=K_LP=200.
+# Hyper-parameters follow the paper (Sec. IV/V, Algorithm 1) and the
+# original `myasp-smd.py`: n_steps=25, LSTM hidden=64, episodes=100,
+# gamma=0.96, batch=128, lr=3e-4, TP/TN/FP/FN = 10/1/-1/-10,
+# lambda_0=10, lambda in [0.1, 10], K_AL = 5% of windows/episode (paper
+# Sec. V-B; repo used K_AL=200), K_LP=200, alpha=1e-4 (see LAMBDA_ALPHA
+# below; the repo's 1e-3 was calibrated on its active-learning-subset
+# reward).  VAE window scaler defaults to "standard" (Algorithm 1 line 6).
 #
 # Usage:  bash tests/run_smd.sh [EPISODES] [MODEL]
 # Example: bash tests/run_smd.sh 100              # VAE backbone (paper)
@@ -25,6 +28,14 @@ MODEL="${2:-vae}"                      # "vae" (paper) or "transformer"
 RECON_DIR="models/${MODEL}/smd"
 PY="${PYTHON:-python}"
 SMD_DIR="SMD/ServerMachineDataset"
+
+# Paper-fidelity settings overridable via environment:
+#   AL_FRACTION=0.05    -> "5% of the most confusing windows per episode"
+#   LAMBDA_ALPHA=1e-4   -> gradual Fig. 2a-style decay of lambda for the
+#                          full-episode reward (repo-literal: 1e-3 on its
+#                          active-learning-subset reward)
+AL_FRACTION="${AL_FRACTION:-0.05}"
+LAMBDA_ALPHA="${LAMBDA_ALPHA:-1e-4}"
 
 echo "== 1/5 BUILDVAE (${MODEL} backbone) on the 28 normal training machines =="
 "$PY" scripts/train_vae.py \
@@ -48,8 +59,8 @@ echo "== 3/5 TRAINRL =="
   --output_dir models/dqn --run_name smd \
   --n_steps 25 --n_hidden_dim 64 --episodes "$EPISODES" \
   --batch_size 128 --learning_rate 3e-4 --discount_factor 0.96 \
-  --al_budget 200 --lp_budget 200 \
-  --lambda_init 10.0 --lambda_alpha 0.001 \
+  --al_fraction "$AL_FRACTION" --lp_budget 200 \
+  --lambda_init 10.0 --lambda_alpha "$LAMBDA_ALPHA" \
   --lambda_target 0.0 --lambda_min 0.1 --lambda_max 10.0
 
 echo "== 4/5 VALIDATE (held-out 20% of the machines) =="
