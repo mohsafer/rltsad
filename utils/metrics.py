@@ -86,6 +86,61 @@ def point_adjust_metrics(
     return binary_metrics(y_true, adjusted)
 
 
+def rlad_protocol_metrics(
+    y_true: Sequence[float],
+    y_pred: Sequence[float],
+    tolerance: int = 5,
+    tp_value: float = 10.0,
+    tn_value: float = 1.0,
+    fp_value: float = -1.0,
+    fn_value: float = -10.0,
+) -> Dict[str, float]:
+    """The *ancestor* evaluation protocol of RLAD (twmoveon/RLAD,
+    ``q_learning_validator``), provided for apples-to-apples comparison with
+    that baseline.  Two steps, both translated literally from the original:
+
+    1. **Reward-tolerance correction**: work on the per-step reward sequence
+       (TP/TN/FP/FN values); any *negative* reward within ``tolerance`` steps
+       of a true positive is flipped to its positive counterpart
+       ("if FN or FP happened within a small range of TP, correct it").
+    2. **Add-one smoothed** precision/recall:
+       ``precision = (tp+1)/(tp+fp+1)``, ``recall = (tp+1)/(tp+fn+1)``.
+
+    AU-PR is not defined in the RLAD protocol and is reported as 0.0 to keep
+    the metric-dict shape consistent.  This is NOT the DRSMT paper protocol —
+    use ``binary_metrics`` (the default) for that.
+    """
+    y_true = np.asarray(y_true).round().astype(int)
+    y_pred = np.asarray(y_pred).round().astype(int)
+
+    rewards = np.where(
+        y_true == 1,
+        np.where(y_pred == 1, tp_value, fn_value),
+        np.where(y_pred == 1, fp_value, tn_value),
+    ).astype(np.float64)
+
+    if tolerance and tolerance > 0:  # literal translation of the original loop
+        for i in range(len(rewards)):
+            if rewards[i] < 0:
+                lo = max(0, i - tolerance)
+                hi = min(i + tolerance + 1, len(rewards))
+                if np.count_nonzero(rewards[lo:hi] == tp_value) > 0:
+                    rewards[i] = -rewards[i]
+
+    tp = int(np.count_nonzero(rewards == tp_value))
+    fp = int(np.count_nonzero(rewards == fp_value))
+    fn = int(np.count_nonzero(rewards == fn_value))
+    precision = (tp + 1) / float(tp + fp + 1)
+    recall = (tp + 1) / float(tp + fn + 1)
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+    return {
+        "precision": float(precision),
+        "recall": float(recall),
+        "f1": float(f1),
+        "aupr": 0.0,  # not defined by the RLAD protocol
+    }
+
+
 def aggregate_metrics(
     per_episode: Sequence[Dict[str, float]],
 ) -> Dict[str, Dict[str, float]]:

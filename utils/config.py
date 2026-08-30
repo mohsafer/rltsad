@@ -35,6 +35,12 @@ class DRSMTConfig:
     # Number of equal slices K used by VALIDATE (Algorithm 1, line 36-43) when
     # the dataset consists of a single long series (e.g. WADI).
     k_validation_slices: int = 5
+    # Evaluation protocol: "pointwise" = paper protocol (point-wise sklearn
+    # precision/recall/F1 + AU-PR, zero_division=0); "rlad" = the ancestor
+    # RLAD baseline protocol (reward-tolerance correction +/-5 steps +
+    # add-one smoothing, see utils.metrics.rlad_protocol_metrics) for
+    # apples-to-apples comparison with that baseline.  Default is the paper's.
+    eval_protocol: str = "pointwise"  # {"pointwise", "rlad"}
     # Remove sensors with zero variance across the training samples
     # (paper Sec. IV-A "feature selection").
     drop_zero_variance: bool = True

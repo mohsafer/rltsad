@@ -3,6 +3,10 @@
 For every validation episode the greedy policy (epsilon = 0) classifies each
 time step of a held-out series; precision, recall, F1 and AU-PR are computed
 per episode (paper Sec. V) and aggregated as mean +- std (Table II notation).
+The default ``--protocol pointwise`` follows the paper (sklearn metrics,
+zero_division=0); ``--protocol rlad`` additionally offers the ancestor RLAD
+baseline protocol (reward-tolerance correction + add-one smoothing, no AU-PR)
+so results can be compared apples-to-apples with that baseline.
 
 Episode definition, following the original code:
 
@@ -43,7 +47,12 @@ from scripts.common import load_and_prepare, rollout, split_train_valid  # noqa:
 from utils.config import DRSMTConfig, set_seed  # noqa: E402
 from utils.data_loader import SeriesData  # noqa: E402
 from utils.env import TimeSeriesEnv, env_from_series  # noqa: E402
-from utils.metrics import aggregate_metrics, binary_metrics, format_metrics_table  # noqa: E402
+from utils.metrics import (  # noqa: E402
+    aggregate_metrics,
+    binary_metrics,
+    format_metrics_table,
+    rlad_protocol_metrics,
+)
 
 
 def _parse_args(argv=None) -> argparse.Namespace:
@@ -60,6 +69,13 @@ def _parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--k_slices", type=int, default=5,
                         help="K equal slices for single-series datasets (Algorithm 1)")
     parser.add_argument("--validation_separate_ratio", type=float, default=0.8)
+    parser.add_argument("--protocol", default="pointwise",
+                        choices=["pointwise", "rlad"],
+                        help="metrics protocol: 'pointwise' is the paper's "
+                             "(sklearn P/R/F1 + AU-PR); 'rlad' applies the "
+                             "ancestor RLAD baseline protocol (reward "
+                             "tolerance +-5 + add-one smoothing) so numbers "
+                             "are comparable with that baseline")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
     return parser.parse_args(argv)
@@ -114,6 +130,7 @@ def main(argv=None) -> None:
         data_dir=args.data_dir,
         validation_separate_ratio=args.validation_separate_ratio,
         k_validation_slices=args.k_slices,
+        eval_protocol=args.protocol,
         seed=args.seed,
         device=args.device,
     )
@@ -156,9 +173,15 @@ def main(argv=None) -> None:
             tp=cfg.tp_value, tn=cfg.tn_value, fp=cfg.fp_value, fn=cfg.fn_value,
         )
         info = rollout(env, dqn, device, epsilon=0.0, rng=rng, record=True)
-        metrics = binary_metrics(
-            info["ground_truth"], info["predictions"], y_score=info["scores"]
-        )
+        if cfg.eval_protocol == "rlad":
+            # ancestor RLAD baseline protocol (no score-based AU-PR)
+            metrics = rlad_protocol_metrics(
+                info["ground_truth"], info["predictions"]
+            )
+        else:
+            metrics = binary_metrics(
+                info["ground_truth"], info["predictions"], y_score=info["scores"]
+            )
         per_episode.append(metrics)
         names.append(series.name)
 
@@ -187,6 +210,7 @@ def main(argv=None) -> None:
         "dqn_model_dir": args.dqn_model_dir,
         "n_steps": cfg.n_steps,
         "n_features": data.n_features,
+        "protocol": cfg.eval_protocol,
         "n_episodes": len(per_episode),
         "episode_names": names,
         "timestamp": datetime.now().isoformat(timespec="seconds"),

@@ -250,6 +250,12 @@ transformer` to step 1 and point `--vae_model_dir` at
 `models/transformer/smd` in steps 2-4 (or just run
 `bash tests/run_smd.sh 100 transformer`).
 
+Metrics protocol: step 4 defaults to the paper's point-wise protocol
+(sklearn P/R/F1 + AU-PR).  Passing `--protocol rlad` switches step 4 to the
+ancestor [RLAD baseline](https://github.com/twmoveon/RLAD) protocol
+(reward-tolerance correction of ±5 steps + add-one smoothing, no AU-PR) —
+useful only for apples-to-apples comparison with that baseline.
+
 Where the two original research scripts disagreed (e.g. LSTM hidden size 128
 on SMD vs 64 on WADI, ε decay over updates vs episodes), the paper's value is
 the default and the alternative is a `DRSMTConfig` / CLI option; each choice

@@ -370,6 +370,11 @@ flowchart LR
 * **Key API:** `binary_metrics`, `aggregate_metrics` (mean ± std across
   episodes — the `x ± y` of Table II), `format_metrics_table`,
   `point_adjust_metrics` (optional, off by default),
+  `rlad_protocol_metrics` (opt-in replica of the ancestor
+  [RLAD](https://github.com/twmoveon/RLAD) validation protocol: reward
+  values → any negative reward within ±5 steps of a TP is flipped, then
+  add-one-smoothed precision/recall; useful only for apples-to-apples
+  comparison with that baseline),
   `precision_recall_curve_points`.
 * **Connected to:** used by `scripts/evaluate.py` only; results land in
   `results/<dataset>_metrics.json` and are printed as a table.
@@ -470,7 +475,11 @@ flowchart LR
   * `epsilon_at(cfg, episode, updates)` — ε schedule ("episode" =
     WADI-style linear decay per episode, default; "linear" = SMD-style over
     gradient updates); `update_lambda(cfg, λ, R_episode)` — the Eq. 4
-    proportional controller.
+    proportional controller.  The paper leaves alpha unstated; the original
+    code's alpha=1e-3 was calibrated on its active-learning-subset reward,
+    so with the full-episode reward accumulated here pass
+    `--lambda_alpha 1e-4..1e-5` for the gradual Fig. 2a-style decay
+    (1e-3 reaches `lambda_min` within a few episodes).
   * `rollout(env, policy, ε, rng, replay=None, record=False, q_table=None)`
     — one episode; pushes transitions and (in record mode) returns
     predictions/ground-truth/Q-scores/series values for evaluation.
@@ -533,8 +542,10 @@ flowchart LR
   `r = [R1(0)+λ·p[t], R1(1)+λ·p[t]]` → `num_updates_per_episode` Bellman
   updates (`target_vec[a] = r[a] + γ·max Q'(s',·)`, only the taken action
   regressed; target sync every C updates) → λ controller → history/logging
-  → periodic checkpoints.  Applies `--al_fraction` per series and adopts
-  `n_steps` from the recon-model meta (fail-fast on feature mismatches).
+  → periodic checkpoints.  `--al_fraction 0.05` implements the paper's
+  "5% of the most confusing windows per episode" budget (Sec. V-B; the
+  repo-literal alternative is `--al_budget 200`), and `n_steps` is adopted
+  from the recon-model meta (fail-fast on feature mismatches).
 * **Connected to:** consumes recon model + replay payload; produces
   `models/dqn/<run>/{q_network.pt, meta.json, config.json, history.json}`.
 
@@ -545,6 +556,8 @@ flowchart LR
   per-episode `binary_metrics` (with Q-margin as the continuous score);
   mean ± std aggregation; metrics JSON + per-episode `.npz` arrays for the
   Fig. 3 panels.  Cross-checks DQN meta vs recon-model meta before running.
+  `--protocol rlad` swaps the paper metrics for the ancestor RLAD baseline
+  protocol (`rlad_protocol_metrics`, recorded in the JSON `"protocol"` field).
 * **Connected to:** consumes both model dirs + dataset; produces
   `results/<ds>_metrics.json` and `results/<ds>_episodes/*.npz`.
 
@@ -576,4 +589,53 @@ flowchart LR
 * `run_smd.sh [EPISODES] [MODEL]` — the same five stages on the real
   SMD data with the paper's hyper-parameters.
 * Both scripts are the executable form of the pipeline diagram at the top
-  of this file and double as reference for the exact CLI arguments.
+  of this file and double as reference for the exact CLI arguments.  They
+  default to the paper-fidelity settings (`AL_FRACTION=0.05`,
+  `LAMBDA_ALPHA=1e-4`); override them without editing the scripts, e.g.
+  `AL_FRACTION=0.2 LAMBDA_ALPHA=1e-3 bash tests/run_smd.sh 100` for the
+  repo-literal behaviour.
+
+## Provenance — related codebases cross-check (Aug 2026)
+
+The implementation was cross-checked against the six closest public
+codebases.  What this repo took, what it deliberately left out, and why:
+
+* [twmoveon/RLAD](https://github.com/twmoveon/RLAD) (official code of Wu &
+  Ortiz 2021, the direct algorithmic ancestor of DRSMT's `RLVAL.py`) —
+  **verified lineage**: `time_series_repo_ext.py` (the `label = -1`
+  semi-supervised column, per-series Min-Max, cyclic series selection) is
+  byte-equivalent to our `legacy/environment/`; the warm-up recipe
+  (IsolationForest `contamination=0.01` on window tails, label 5 most
+  anomalous + 5 most normal, LabelSpreading pseudo-labels for the *most
+  certain* unlabelled windows) is exactly our `warmup_replay_memory`;
+  margin sampling `|Q(s,0)−Q(s,1)|` excluding labelled windows is exactly
+  our `MarginActiveLearner`.  **Adopted:** the RLAD validation protocol
+  (reward-tolerance correction ±5 steps + add-one smoothing) as the opt-in
+  `--protocol rlad` of `evaluate.py`; RLAD's own reward values are
+  TP=5/TN=1/FP=−1/FN=−5 and hidden size 128, but DRSMT upgrades those
+  (10/1/−1/−10, hidden 64 in the paper), so the paper's values stay the
+  default.
+* [jortizcs/sbsplusplus](https://github.com/jortizcs/sbsplusplus)
+  (Codes/RL4AD — the David-Silver-DQN ancestor of RLAD) — confirms the
+  hyper-parameter lineage (n_steps=25, hidden 64/128, batch 256, replay
+  warm-up 1500) and that Bayesian hyper-parameter optimisation
+  (`BayesianOptimization.py`) was part of the original methodology — noted
+  as future work, not adopted.
+* [thuml/Time-Series-Library](https://github.com/thuml/Time-Series-Library)
+  — a large multi-task model zoo, not a DRSMT competitor; its anomaly
+  detection uses reconstruction + (contested) point-adjust evaluation.
+  Nothing adopted: our loaders/metrics follow the DRSMT paper, and
+  importing a heavyweight library would be scope creep.
+* [zhihanyue/ts2vec](https://github.com/zhihanyue/ts2vec) (official TS2Vec,
+  AAAI'22 — one of DRSMT's compared baselines) — self-supervised
+  representation learning; its causal sliding inference could serve as an
+  alternative feature backbone, but that is a different model family than
+  the paper's VAE.  Not adopted; reference only.
+* [shhdan/TrafficAD_RL](https://github.com/shhdan/TrafficAD_RL)
+  (peer-reviewed transportation paper) — LSTM + Q-learning with a reward
+  *learned from the data distribution* instead of hand-set values;
+  conceptually parallel to DRSMT's VAE-driven intrinsic reward R2.  No
+  directly reusable code; validates the design direction.
+* [AnishEllore/DeepRLAnomalyDetector](https://github.com/AnishEllore/DeepRLAnomalyDetector)
+  — undocumented personal DQN port (no README, no paper, 0 stars);
+  rejected as junk risk.
