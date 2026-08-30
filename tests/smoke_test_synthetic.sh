@@ -21,6 +21,7 @@ cd "$(dirname "$0")/.."
 EPISODES="${1:-30}"
 MODEL="${2:-vae}"                      # "vae" (paper) or "transformer"
 RECON_DIR="models/${MODEL}/synthetic"  # weights dir of the reconstruction model
+DQN_DIR="models/dqn/synthetic_${MODEL}"  # per-backbone: keeps both runs comparable
 PY="${PYTHON:-python}"
 
 # Paper-fidelity settings overridable via environment:
@@ -63,7 +64,7 @@ echo "== 4/6 TRAINRL (Algorithm 1 lines 16-34) =="
   --dataset synthetic --data_dir data/synthetic \
   --vae_model_dir "$RECON_DIR" \
   --replay_path "replay_memory_${MODEL}.pkl" \
-  --output_dir models/dqn --run_name synthetic \
+  --output_dir models/dqn --run_name "synthetic_${MODEL}" \
   --n_steps 25 --n_hidden_dim 64 --episodes "$EPISODES" \
   --batch_size 128 --learning_rate 3e-4 --discount_factor 0.96 \
   --al_fraction "$AL_FRACTION" --lp_budget 200 \
@@ -74,12 +75,12 @@ echo "== 5/6 VALIDATE (Algorithm 1 lines 36-43) =="
 "$PY" scripts/evaluate.py \
   --dataset synthetic --data_dir data/synthetic \
   --vae_model_dir "$RECON_DIR" \
-  --dqn_model_dir models/dqn/synthetic \
+  --dqn_model_dir "$DQN_DIR" \
   --output "results/synthetic_${MODEL}_metrics.json"
 
 echo "== 6/6 Fig. 2 + Fig. 3 plots =="
 "$PY" scripts/visualize_results.py \
-  --run_dir models/dqn/synthetic \
+  --run_dir "$DQN_DIR" \
   --eval_dir "results/synthetic_${MODEL}_episodes" \
   --metrics_json "results/synthetic_${MODEL}_metrics.json" \
   --output_dir "results/plots_${MODEL}"

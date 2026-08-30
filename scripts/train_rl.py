@@ -4,7 +4,9 @@ Per episode (paper Sec. IV-B / IV-C, Algorithm 1 lines 18-34):
 
 1. **Active learning + label propagation** -- reveal the ``K_AL`` most
    uncertain windows (smallest Q-value margin) with ground truth and
-   pseudo-label ``K_LP`` more windows through LabelSpreading;
+   pseudo-label ``K_LP`` more windows through LabelSpreading (the most
+   confident ones by default; ``--lp_selection uncertain`` reproduces the
+   WADI variant);
 2. **Rollout** -- run one full episode with epsilon-greedy actions; every
    transition stores the reward vector ``r = [R1(0) + lam*p[t], R1(1) +
    lam*p[t]]`` with the VAE reconstruction penalty scaled by lambda(t);
@@ -115,6 +117,12 @@ def _parse_args(argv=None) -> argparse.Namespace:
                     help="if > 0, query this fraction of each series' windows "
                          "per episode (paper Sec. V-B: 0.05); overrides --al_budget")
     al.add_argument("--lp_budget", type=int, default=200)
+    al.add_argument("--lp_selection", default="certain",
+                    choices=["certain", "uncertain"],
+                    help="which unlabelled windows receive LP pseudo-labels: "
+                         "'certain' = most confident (RLAD/myasp-smd lineage, "
+                         "matches warm-up); 'uncertain' = least confident "
+                         "(myasp-wadi variant)")
     al.add_argument("--lp_neighbors", type=int, default=10)
     al.add_argument("--lp_max_samples", type=int, default=5_000)
 
@@ -154,6 +162,7 @@ def main(argv=None) -> None:
         al_budget=args.al_budget,
         al_fraction=args.al_fraction,
         lp_budget=args.lp_budget,
+        lp_selection=args.lp_selection,
         lp_neighbors=args.lp_neighbors,
         lp_max_samples=args.lp_max_samples,
         validation_separate_ratio=args.validation_separate_ratio,

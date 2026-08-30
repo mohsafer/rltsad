@@ -300,8 +300,11 @@ flowchart LR
   `num_updates_per_episode=10`, `update_target_every=10`, ε-schedule), the
   asymmetric reward (`tp/tn/fp/fn = 10/1/−1/−10`, `reward_unlabeled`), the λ
   controller (`lambda_init/alpha/target/min/max`), active learning
-  (`al_budget`, `al_fraction`, `lp_budget`, LabelSpreading graph settings),
-  and warm-up settings.
+  (`al_budget`, `al_fraction`, `lp_budget`, `lp_selection`,
+  LabelSpreading graph settings),
+  warm-up settings, and the evaluation protocol
+  (`eval_protocol: "pointwise"|"rlad"` — the paper's metrics vs the ancestor
+  RLAD baseline protocol used by `evaluate.py --protocol rlad`).
 * **Key API:** `DRSMTConfig` dataclass with `.resolved_device()`,
   `.with_overrides()` (used by `train_rl` to apply `al_fraction` per series),
   `.save()/.load()`; `set_seed(seed)` seeds python/numpy/torch.
@@ -502,8 +505,11 @@ flowchart LR
   fits `sklearn LabelSpreading(kernel='knn')` on (subsampled) flattened
   windows with `-1` unknowns.  `active_learning_step` composes the per-
   episode round of Algorithm 1 lines 19-21: reveal K_AL ground-truth labels,
-  fit the LP graph with all revealed labels, pseudo-label the K_LP most
-  uncertain remaining windows with `lp.transduction_`.
+  fit the LP graph with all revealed labels, pseudo-label K_LP remaining
+  windows with `lp.transduction_` — the *most confident* ones by default
+  (`cfg.lp_selection == "certain"`, the RLAD/myasp-smd lineage, matching the
+  warm-up path); `--lp_selection uncertain` switches to the WADI-variant
+  behaviour of pseudo-labelling the most uncertain windows.
 * **Key API:** `MarginActiveLearner.q_values / margins / select`;
   `fit_label_spreading`; `active_learning_step(env, learner, cfg)`;
   plus a standalone CLI (`python scripts/active_learning.py …`) that
@@ -544,7 +550,10 @@ flowchart LR
   regressed; target sync every C updates) → λ controller → history/logging
   → periodic checkpoints.  `--al_fraction 0.05` implements the paper's
   "5% of the most confusing windows per episode" budget (Sec. V-B; the
-  repo-literal alternative is `--al_budget 200`), and `n_steps` is adopted
+  repo-literal alternative is `--al_budget 200`); the K_LP propagation
+  pseudo-labels default to the *most confident* LP outputs
+  (`--lp_selection certain`, RLAD/myasp-smd lineage) with `--lp_selection
+  uncertain` reproducing the WADI variant; and `n_steps` is adopted
   from the recon-model meta (fail-fast on feature mismatches).
 * **Connected to:** consumes recon model + replay payload; produces
   `models/dqn/<run>/{q_network.pt, meta.json, config.json, history.json}`.
@@ -588,6 +597,13 @@ flowchart LR
   (`set -euo pipefail`, so it stops at the first failure).
 * `run_smd.sh [EPISODES] [MODEL]` — the same five stages on the real
   SMD data with the paper's hyper-parameters.
+* Both scripts accept the reconstruction backbone as `[MODEL]`
+  (`vae` default | `transformer`) and keep every artifact per backbone so
+  runs stay comparable: recon model in `models/<model>/<dataset>/`, replay
+  in `replay_memory_<dataset>_<model>.pkl` (smoke test:
+  `replay_memory_<model>.pkl`), DQN in `models/dqn/<dataset>_<model>/`,
+  metrics in `results/<dataset>_<model>_metrics.json` and plots in
+  `results/plots_<dataset>_<model>/` (smoke test: `results/plots_<model>/`).
 * Both scripts are the executable form of the pipeline diagram at the top
   of this file and double as reference for the exact CLI arguments.  They
   default to the paper-fidelity settings (`AL_FRACTION=0.05`,

@@ -11,8 +11,13 @@ Two complementary mechanisms, exactly as in the paper:
 2. **Label propagation** (Sec. IV-C / Algorithm 1 line 20).  A
    semi-supervised ``LabelSpreading`` model transmits the revealed labels to
    nearby unlabelled windows based on feature similarity, ``P(y_i | x_i) ~
-   sum_{j in L} w_ij P(y_j | x_j)``; the ``K_LP`` most uncertain unlabelled
-   windows receive propagated pseudo-labels.
+   sum_{j in L} w_ij P(y_j | x_j)``; ``K_LP`` unlabelled windows receive
+   propagated pseudo-labels.  *Which* windows are selected is configurable
+   (``DRSMTConfig.lp_selection``): ``"certain"`` takes the most confident LP
+   outputs (ascending uncertainty -- the RLAD / myasp-smd lineage, matching
+   the warm-up path; the original ranked by entropy, here by
+   ``1 - max prob``), ``"uncertain"`` takes the least confident ones (the
+   myasp-wadi variant).
 
 This file is both an importable module (used by ``train_rl.py`` and
 ``warmup_replay.py``) and a standalone CLI that demonstrates one AL+LP round
@@ -117,9 +122,11 @@ def active_learning_step(
 
     1. rank unlabelled windows by the Q-value margin, reveal the ``K_AL``
        most confusing ones with ground-truth labels;
-    2. fit LabelSpreading with all revealed labels, then pseudo-label the
-       ``K_LP`` most uncertain still-unlabelled windows with the propagated
-       labels (``lp.transduction_``).
+    2. fit LabelSpreading with all revealed labels, then pseudo-label
+       ``K_LP`` still-unlabelled windows with the propagated labels
+       (``lp.transduction_``) -- the most confident ones by default
+       (``cfg.lp_selection == "certain"``), or the most uncertain ones with
+       ``"uncertain"``.
 
     Returns a bookkeeping dictionary with the revealed time indices.
     """
@@ -153,7 +160,13 @@ def active_learning_step(
             lp_local = np.empty(0, dtype=np.int64)
             if len(candidate_pos) > 0:
                 k = int(min(cfg.lp_budget, len(candidate_pos)))
-                order = np.argsort(-uncertainty[candidate_pos], kind="stable")[:k]
+                if getattr(cfg, "lp_selection", "certain") == "uncertain":
+                    # myasp-wadi variant: propagate to the *least* confident
+                    order = np.argsort(-uncertainty[candidate_pos], kind="stable")[:k]
+                else:
+                    # RLAD / myasp-smd lineage (and the warm-up path):
+                    # propagate the *most* confident LP outputs
+                    order = np.argsort(uncertainty[candidate_pos], kind="stable")[:k]
                 lp_local = fit_idx[candidate_pos[order]]
             for i in lp_local:
                 propagated = int(lp.transduction_[np.where(fit_idx == i)[0][0]])

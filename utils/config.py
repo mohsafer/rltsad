@@ -151,6 +151,13 @@ class DRSMTConfig:
     # K_LP: pseudo-labels per episode propagated by LabelSpreading
     # (Algorithm 1 line 20-21).
     lp_budget: int = 200
+    # Which still-unlabelled windows receive the propagated pseudo-labels
+    # during TRAINRL: "certain" = the most confident LP outputs (ascending
+    # uncertainty -- the RLAD / myasp-smd lineage, consistent with the
+    # warm-up path); "uncertain" = the least confident ones (descending --
+    # the myasp-wadi variant).  The warm-up always pseudo-labels the most
+    # confident windows, as in every variant of the original code.
+    lp_selection: str = "certain"  # {"certain", "uncertain"}
     # LabelSpreading graph parameters.
     lp_neighbors: int = 10
     # Subsample cap for the LabelSpreading fit (the kNN graph is expensive on

@@ -26,6 +26,7 @@ cd "$(dirname "$0")/.."
 EPISODES="${1:-100}"
 MODEL="${2:-vae}"                      # "vae" (paper) or "transformer"
 RECON_DIR="models/${MODEL}/smd"
+DQN_DIR="models/dqn/smd_${MODEL}"      # per-backbone: keeps both runs comparable
 PY="${PYTHON:-python}"
 SMD_DIR="SMD/ServerMachineDataset"
 
@@ -56,7 +57,7 @@ echo "== 3/5 TRAINRL =="
   --dataset smd --data_dir "$SMD_DIR" \
   --vae_model_dir "$RECON_DIR" \
   --replay_path "replay_memory_smd_${MODEL}.pkl" \
-  --output_dir models/dqn --run_name smd \
+  --output_dir models/dqn --run_name "smd_${MODEL}" \
   --n_steps 25 --n_hidden_dim 64 --episodes "$EPISODES" \
   --batch_size 128 --learning_rate 3e-4 --discount_factor 0.96 \
   --al_fraction "$AL_FRACTION" --lp_budget 200 \
@@ -67,12 +68,12 @@ echo "== 4/5 VALIDATE (held-out 20% of the machines) =="
 "$PY" scripts/evaluate.py \
   --dataset smd --data_dir "$SMD_DIR" \
   --vae_model_dir "$RECON_DIR" \
-  --dqn_model_dir models/dqn/smd \
+  --dqn_model_dir "$DQN_DIR" \
   --output "results/smd_${MODEL}_metrics.json"
 
 echo "== 5/5 Fig. 2 + Fig. 3 plots =="
 "$PY" scripts/visualize_results.py \
-  --run_dir models/dqn/smd \
+  --run_dir "$DQN_DIR" \
   --eval_dir "results/smd_${MODEL}_episodes" \
   --metrics_json "results/smd_${MODEL}_metrics.json" \
   --output_dir "results/plots_smd_${MODEL}"

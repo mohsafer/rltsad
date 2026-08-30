@@ -250,6 +250,11 @@ transformer` to step 1 and point `--vae_model_dir` at
 `models/transformer/smd` in steps 2-4 (or just run
 `bash tests/run_smd.sh 100 transformer`).
 
+Label propagation: step 3 pseudo-labels the *most confident* LabelSpreading
+outputs by default (`--lp_selection certain` — the RLAD / myasp-smd lineage,
+consistent with the warm-up); pass `--lp_selection uncertain` for the
+WADI-variant behaviour of pseudo-labelling the most uncertain windows.
+
 Metrics protocol: step 4 defaults to the paper's point-wise protocol
 (sklearn P/R/F1 + AU-PR).  Passing `--protocol rlad` switches step 4 to the
 ancestor [RLAD baseline](https://github.com/twmoveon/RLAD) protocol
