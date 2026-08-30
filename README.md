@@ -1,20 +1,7 @@
-# Dynamic Reward Scaling for Reinforcement Learning in Time Series Anomaly Detection
-## Paper
-[Link to Paper](https://arxiv.org/pdf/2508.18474)  
-_Bahareh Golchin, Banafsheh Rekabdar, Kunpeng Liu_
 
-<div align="center">
-  <img
-    src="Figure/proposed_method_dynamic_reward.png"
-    width="600"
-    height="250"
-    alt="Proposed Figure">
-</div>
 
 A semi‐supervised RL framework for time‐series anomaly detection.  
-Combines a Variational Autoencoder (VAE), an LSTM‐based DQN, dynamic reward shaping (λ), and active learning to detect anomalies with minimal labels.
 
----
 
 ## Features
 
