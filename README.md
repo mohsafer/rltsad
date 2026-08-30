@@ -249,32 +249,4 @@ on SMD vs 64 on WADI, ε decay over updates vs episodes), the paper's value is
 the default and the alternative is a `DRSMTConfig` / CLI option; each choice
 is documented in the corresponding module docstring.
 
-## Citation
-```
-@inproceedings{golchin2025dynamic,
-  title     = {Dynamic Reward Scaling for Reinforcement Learning in Time Series Anomaly Detection},
-  author    = {Golchin, Bahareh and Rekabdar, Banafsheh and Liu, Kunpeng},
-  booktitle = {Proceedings of the IEEE AIxSET 2025},
-  year      = {2025},
-  publisher = {IEEE}  
-}
-```
-<!--
-## Paper
-```
-Dynamic Reward Scaling for Reinforcement Learning in Time Series Anomaly Detection
-ICML 2025.
-Download the full PDF here.
-```
-
-## Citation
-```
-@inproceedings{golchin2025dynamic,
-  title        = {Dynamic Reward Scaling for Reinforcement Learning in Time Series Anomaly Detection},
-  author       = {Golchin, Bahareh and Rekabdar, Banafsheh and Liu, Kunpeng},
-  booktitle    = {ICML},
-  year         = {2025},
-  note         = {Code: \url{https://github.com/baharehgl/Dynamic-Reward-RL-VAE}}
-}
-```
--->
+ 
