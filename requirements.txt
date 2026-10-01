@@ -1,29 +1,8 @@
-# DRSMT -- Dynamic Reward Scaling for Multivariate Time Series
-# Anomaly Detection (VAE-enhanced RL, PyTorch implementation)
-#
-# Python >= 3.10 recommended.  GPU is optional; everything runs on CPU
-# (torch CPU wheels: pip install torch --index-url https://download.pytorch.org/whl/cpu).
-#
-# Version floors are set to the first release of each package that is
-# compatible with NumPy 2.x, so any fresh `pip install -r requirements.txt`
-# resolves to a mutually consistent set (no NumPy-1/NumPy-2 ABI mix).
-#
-# The only third-party packages the implementation imports:
-#   numpy / pandas        -- data loading, windowing, preprocessing
-#                            (utils/data_loader.py)
-#   scikit-learn          -- IsolationForest, LabelSpreading, metrics
-#                            (warm-up, active learning, evaluate)
-#   joblib                -- model/scaler persistence (saved artifacts)
-#   torch                 -- VAE/Transformer reconstruction + LSTM-DQN
-#   matplotlib            -- figures (scripts/visualize_results.py)
+ 
 numpy>=1.26
 pandas>=2.2.2
 scikit-learn>=1.5
 joblib>=1.4.2
 torch>=2.4.1
 matplotlib>=3.9
-
-# NOTE: scipy is intentionally NOT listed -- the PyTorch implementation does
-# not import it (the legacy TF1 scripts in legacy/ did).  Likewise the
-# legacy/ scripts require TensorFlow 1.x, which is deliberately not a
-# dependency of this package; see legacy/README.md.
+ 
